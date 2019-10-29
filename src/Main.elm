@@ -31,6 +31,13 @@ import Url.Parser exposing (Parser)
 
 init : () -> Url -> Key -> ( Model, Cmd Msg )
 init _ url _ =
+    let
+        _ =
+            Debug.log "url" url
+
+        _ =
+            Debug.log "family" (parseFamilly url)
+    in
     case parseFamilly url of
         Just familly ->
             ( Loading, generate (GotRandomPersons familly.members) (shuffle (toPersons familly.members)) )
@@ -73,6 +80,10 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        _ =
+            Debug.log "msg" msg
+    in
     case msg of
         OnUrlRequest urlRequest ->
             ( model, Cmd.none )
