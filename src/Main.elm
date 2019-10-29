@@ -25,6 +25,7 @@ import Html.Styled.Attributes exposing (css)
 import Input exposing (Input, toCouples, toPersons)
 import Person exposing (Person)
 import Random exposing (generate)
+import Route exposing (parseFamily)
 import Url exposing (Url)
 import Url.Parser exposing (Parser)
 
@@ -36,9 +37,9 @@ init _ url _ =
             Debug.log "url" url
 
         _ =
-            Debug.log "family" (parseFamilly url)
+            Debug.log "family" (parseFamily url families)
     in
-    case parseFamilly url of
+    case parseFamily url families of
         Just familly ->
             ( Loading, generate (GotRandomPersons familly.members) (shuffle (toPersons familly.members)) )
 
@@ -54,18 +55,6 @@ type Model
     = Loading
     | Error
     | Result (List Person)
-
-
-parseFamilly : Url -> Maybe Family
-parseFamilly url =
-    let
-        parsers : Parser (Family -> a) a
-        parsers =
-            families
-                |> List.map (\f -> Url.Parser.map f (Url.Parser.s f.path))
-                |> Url.Parser.oneOf
-    in
-    Url.Parser.parse parsers url
 
 
 
