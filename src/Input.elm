@@ -8,20 +8,14 @@ type Input
     | Couple Person Person
 
 
-toPersons : List Input -> List Person
-toPersons inputs =
-    let
-        inputToPersons input =
-            case input of
-                Single p ->
-                    [ p ]
+toPersons : Input -> List Person
+toPersons input =
+    case input of
+        Single p ->
+            [ p ]
 
-                Couple p1 p2 ->
-                    [ p1, p2 ]
-    in
-    inputs
-        |> List.map inputToPersons
-        |> List.concat
+        Couple p1 p2 ->
+            [ p1, p2 ]
 
 
 toCouple : Input -> Maybe ( Person, Person )

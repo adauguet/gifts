@@ -1,60 +1,64 @@
-module Main exposing (..)
+module Main exposing (Model, Msg, init, update, view)
 
-import Algo exposing (run)
-import Browser exposing (Document, UrlRequest)
-import Browser.Navigation exposing (Key)
+import AddCouple
+import AddSingle
+import Browser exposing (Document)
+import Compute exposing (compute)
 import Css
     exposing
-        ( center
+        ( alignItems
+        , center
+        , column
         , displayFlex
-        , fontSize
-        , height
+        , flexDirection
+        , fontFamilies
         , justifyContent
         , margin2
-        , px
+        , none
+        , padding
         , rem
         , right
+        , sansSerif
         , textAlign
         , width
         , zero
         )
-import Family exposing (Family, families)
+import Css.Global exposing (everything, global)
 import Helpers exposing (shiftLeft, shuffle)
-import Html.Styled exposing (Html, div, text, toUnstyled)
-import Html.Styled.Attributes exposing (css)
-import Input exposing (Input, toCouples, toPersons)
+import Html.Styled exposing (Html, button, div, text, toUnstyled)
+import Html.Styled.Attributes exposing (css, disabled)
+import Html.Styled.Events exposing (onClick)
+import Input exposing (Input(..), toCouples, toPersons)
+import Link exposing (Link)
 import Person exposing (Person)
 import Random exposing (generate)
-import Route exposing (parseFamily)
-import Url exposing (Url)
-import Url.Parser exposing (Parser)
-
-
-init : () -> Url -> Key -> ( Model, Cmd Msg )
-init _ url _ =
-    let
-        _ =
-            Debug.log "url" url
-
-        _ =
-            Debug.log "family" (parseFamily url families)
-    in
-    case parseFamily url families of
-        Just familly ->
-            ( Loading, generate (GotRandomPersons familly.members) (shuffle (toPersons familly.members)) )
-
-        Nothing ->
-            ( Loading, Cmd.none )
+import Set
 
 
 
 -- model
 
 
-type Model
-    = Loading
-    | Error
-    | Result (List Person)
+type alias Model =
+    { inputs : List Input
+    , state : State
+    }
+
+
+type State
+    = Default
+    | AddSingle AddSingle.Model
+    | AddCouple AddCouple.Model
+    | Results (List Link)
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( { inputs = []
+      , state = Default
+      }
+    , Cmd.none
+    )
 
 
 
@@ -62,81 +66,170 @@ type Model
 
 
 type Msg
-    = OnUrlRequest UrlRequest
-    | OnUrlChange Url
-    | GotRandomPersons (List Input) (List Person)
+    = OnClickAddSingle
+    | AddSingleMsg AddSingle.Msg
+    | OnClickAddInputAdd Input
+    | OnClickAddInputCancel
+    | OnClickAddCouple
+    | AddCoupleMsg AddCouple.Msg
+    | OnClickCompute
+    | OnClickRestart
+    | GotResults (Maybe (List Link))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        _ =
-            Debug.log "msg" msg
-    in
-    case msg of
-        OnUrlRequest urlRequest ->
-            ( model, Cmd.none )
+    case ( model.state, msg ) of
+        ( Default, OnClickAddSingle ) ->
+            ( { model | state = AddSingle AddSingle.init }, Cmd.none )
 
-        OnUrlChange url ->
-            ( model, Cmd.none )
+        ( Default, OnClickAddCouple ) ->
+            ( { model | state = AddCouple AddCouple.init }, Cmd.none )
 
-        GotRandomPersons inputs persons ->
+        ( AddSingle _, AddSingleMsg subMsg ) ->
+            ( { model | state = AddSingle (AddSingle.update subMsg) }, Cmd.none )
+
+        ( AddCouple subModel, AddCoupleMsg subMsg ) ->
+            ( { model | state = AddCouple (AddCouple.update subMsg subModel) }, Cmd.none )
+
+        ( _, OnClickAddInputAdd input ) ->
+            case alreadyExisting model.inputs input of
+                [] ->
+                    ( { model | inputs = input :: model.inputs, state = Default }, Cmd.none )
+
+                other ->
+                    let
+                        _ =
+                            Debug.log "Les prénoms suivants sont déjà utilisés :" other
+                    in
+                    ( model, Cmd.none )
+
+        ( _, OnClickAddInputCancel ) ->
+            ( { model | state = Default }, Cmd.none )
+
+        ( Default, OnClickCompute ) ->
             let
+                couples : List Link
                 couples =
-                    toCouples inputs
-
-                chain =
-                    run couples persons
+                    model.inputs
+                        |> List.map Link.fromInput
+                        |> List.concat
             in
-            if List.isEmpty chain then
-                ( Error, Cmd.none )
+            ( model, generate GotResults (compute model.inputs couples) )
 
-            else
-                ( Result chain, Cmd.none )
+        ( Default, GotResults maybeResult ) ->
+            case maybeResult of
+                Nothing ->
+                    ( model, Cmd.none )
+
+                Just links ->
+                    ( { model | state = Results links }, Cmd.none )
+
+        ( Results _, OnClickRestart ) ->
+            ( { model
+                | state = Default
+                , inputs = []
+              }
+            , Cmd.none
+            )
+
+        _ ->
+            ( model, Cmd.none )
 
 
-
---view
-
-
-results : List Person -> List (Html Msg)
-results persons =
+alreadyExisting : List Input -> Input -> List Person
+alreadyExisting inputs input =
     let
-        tuples =
-            List.map2 Tuple.pair persons (shiftLeft persons)
+        list =
+            inputs
+                |> List.map toPersons
+                |> List.concat
+                |> Set.fromList
 
+        persons =
+            input
+                |> toPersons
+                |> Set.fromList
+    in
+    list
+        |> Set.intersect persons
+        |> Set.toList
+
+
+
+-- view
+
+
+inputView : Input -> Html Msg
+inputView input =
+    div
+        [ css
+            [ displayFlex
+            , alignItems center
+            ]
+        ]
+        (case input of
+            Single p ->
+                [ div [] [ text p ] ]
+
+            Couple p1 p2 ->
+                [ div [] [ text p1, text " et ", text p2 ] ]
+        )
+
+
+results : List Link -> List (Html Msg)
+results links =
+    let
         format ( a, b ) =
             div
-                [ css
-                    [ displayFlex
-                    , height (px 34)
-                    , fontSize (px 18)
-                    , justifyContent center
-                    ]
-                ]
+                [ css [ displayFlex ] ]
                 [ div [ css [ width (rem 8), textAlign right ] ] [ text a ]
                 , div [ css [ margin2 zero (rem 0.5) ] ] [ text "offre à" ]
                 , div [ css [ width (rem 8) ] ] [ text b ]
                 ]
     in
-    List.map format tuples
+    List.map format links
+
+
+buttons : List Input -> Html Msg
+buttons inputs =
+    div [ css [ displayFlex, flexDirection column ] ]
+        [ button [ onClick OnClickAddSingle ] [ text "Ajouter une personne" ]
+        , button [ onClick OnClickAddCouple ] [ text "Ajouter un couple" ]
+        , button [ onClick OnClickCompute, disabled (List.length inputs <= 1) ] [ text "Calculer" ]
+        ]
+
+
+body : Model -> List (Html Msg)
+body model =
+    [ global [ everything [ fontFamilies [ "Roboto", .value sansSerif ] ] ]
+    , div [ css [ padding (rem 1), displayFlex, justifyContent center ] ]
+        [ case model.state of
+            Default ->
+                div [ css [ displayFlex, alignItems center, flexDirection column ] ]
+                    [ div [] (List.map inputView model.inputs)
+                    , buttons model.inputs
+                    ]
+
+            AddSingle m ->
+                AddSingle.view m AddSingleMsg OnClickAddInputAdd OnClickAddInputCancel
+
+            AddCouple m ->
+                AddCouple.view m AddCoupleMsg OnClickAddInputAdd OnClickAddInputCancel
+
+            Results links ->
+                div [ css [ displayFlex, alignItems center, flexDirection column ] ]
+                    [ div [] (results links)
+                    , button [ onClick OnClickRestart ] [ text "Recommencer" ]
+                    ]
+        ]
+    ]
 
 
 view : Model -> Document Msg
 view model =
     { title = ""
-    , body =
-        (case model of
-            Loading ->
-                []
-
-            Error ->
-                []
-
-            Result persons ->
-                results persons
-        )
-            |> List.map toUnstyled
+    , body = body model |> List.map toUnstyled
     }
 
 
@@ -146,11 +239,9 @@ view model =
 
 main : Program () Model Msg
 main =
-    Browser.application
+    Browser.document
         { init = init
         , view = view
         , update = update
         , subscriptions = \_ -> Sub.none
-        , onUrlRequest = OnUrlRequest
-        , onUrlChange = OnUrlChange
         }

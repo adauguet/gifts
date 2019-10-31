@@ -9,9 +9,9 @@ The implementation in the current version 3.1.0 does not provide satisfying resu
 This implementation is extracted from version 3.0.0 and uses Fisher Yates algorithm.
 -}
 shuffle : List a -> Generator (List a)
-shuffle arr =
-    if List.isEmpty arr then
-        Random.constant arr
+shuffle list =
+    if List.isEmpty list then
+        Random.constant list
 
     else
         let
@@ -28,7 +28,7 @@ shuffle arr =
                                     helper ( val :: done, shorter )
                         )
         in
-        Random.map Tuple.first (helper ( [], arr ))
+        Random.map Tuple.first (helper ( [], list ))
 
 
 shiftLeft : List a -> List a
