@@ -1,7 +1,8 @@
-module Helpers exposing (shiftLeft, shuffle)
+module Helpers exposing (intersect, shiftLeft, shuffle)
 
 import Random exposing (Generator)
 import Random.List
+import Set
 
 
 {-| source: elm-community/random-extra
@@ -39,3 +40,9 @@ shiftLeft list =
 
         head :: tail ->
             tail ++ [ head ]
+
+
+intersect : List comparable -> List comparable -> List comparable
+intersect list1 list2 =
+    Set.intersect (Set.fromList list1) (Set.fromList list2)
+        |> Set.toList

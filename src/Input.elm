@@ -1,4 +1,4 @@
-module Input exposing (Input(..), toCouples, toPersons)
+module Input exposing (Input(..), toCouples, toPerson, toPersons)
 
 import Person exposing (Person)
 
@@ -8,14 +8,21 @@ type Input
     | Couple Person Person
 
 
-toPersons : Input -> List Person
-toPersons input =
+toPerson : Input -> List Person
+toPerson input =
     case input of
         Single p ->
             [ p ]
 
         Couple p1 p2 ->
             [ p1, p2 ]
+
+
+toPersons : List Input -> List Person
+toPersons inputs =
+    inputs
+        |> List.map toPerson
+        |> List.concat
 
 
 toCouple : Input -> Maybe ( Person, Person )
