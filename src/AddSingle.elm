@@ -5,8 +5,15 @@ import Css
         ( column
         , displayFlex
         , flexDirection
+        , justifyContent
+        , margin
+        , margin2
+        , marginTop
         , pct
+        , rem
+        , spaceBetween
         , width
+        , zero
         )
 import Html.Styled exposing (Attribute, Html, button, div, input, text)
 import Html.Styled.Attributes exposing (css, disabled)
@@ -54,11 +61,11 @@ view :
     -> Html parentMsg
 view model toParentMsg onClickOK onClickCancel =
     div [ css [ displayFlex, flexDirection column ] ]
-        [ text "Ajouter une personne"
-        , input [ onInput (OnInput >> toParentMsg) ] []
-        , div [ css [ displayFlex ] ]
-            [ button [ css [ width (pct 50) ], attribute model onClickOK ] [ text "OK" ]
-            , button [ css [ width (pct 50) ], onClick onClickCancel ] [ text "Annuler" ]
+        [ div [ css [ margin2 (rem 0.5) zero ] ] [ text "Ajouter une personne" ]
+        , input [ css [ margin2 (rem 0.5) zero ], onInput (OnInput >> toParentMsg) ] []
+        , div [ css [ displayFlex, justifyContent spaceBetween, margin2 (rem 0.5) zero ] ]
+            [ button [ css [ width (pct 48) ], attribute model onClickOK ] [ text "OK" ]
+            , button [ css [ width (pct 48) ], onClick onClickCancel ] [ text "Annuler" ]
             ]
         ]
 

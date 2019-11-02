@@ -22,9 +22,9 @@ gerardin =
     , members =
         [ Couple "Pierre" "Solène"
         , Single "Marie"
-        , Couple "Benoît" "Camille"
+        , Couple "Benoît G" "Camille"
         , Couple "Antoine" "Claire"
-        , Couple "Benoit" "Emmanuelle"
+        , Couple "Benoit C" "Emmanuelle"
         ]
     }
 
@@ -34,9 +34,9 @@ dauguet =
     { name = "Dauguet"
     , path = "dauguet"
     , members =
-        [ Couple "Antoine" "Claire"
+        [ Couple "Antoine" "Claire D"
         , Couple "Louis-Marie" "Adeline"
-        , Couple "Grégoire" "Claire"
+        , Couple "Grégoire" "Claire V"
         , Single "Bénédicte"
         , Single "Jean-Baptiste"
         ]

@@ -1,5 +1,6 @@
 module Main exposing (main)
 
+import AddConstraint
 import AddCouple
 import AddSingle
 import Browser exposing (Document)
@@ -14,6 +15,8 @@ import Css
         , fontFamilies
         , justifyContent
         , margin2
+        , marginBottom
+        , marginTop
         , none
         , padding
         , rem
@@ -24,6 +27,7 @@ import Css
         , zero
         )
 import Css.Global exposing (everything, global)
+import Family exposing (Family, families)
 import Helpers exposing (intersect)
 import Html.Styled exposing (Html, button, div, text, toUnstyled)
 import Html.Styled.Attributes exposing (css, disabled)
@@ -41,14 +45,17 @@ import Set
 
 type alias Model =
     { inputs : List Input
+    , constraints : List Link
     , state : State
     }
 
 
 type State
-    = Default
+    = Home
     | AddSingle AddSingle.Model
     | AddCouple AddCouple.Model
+    | LoadFamily (List Family)
+    | AddConstraint AddConstraint.Model
     | Computing Data
     | NotFound
     | Results (List Link)
@@ -65,7 +72,8 @@ type alias Data =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { inputs = []
-      , state = Default
+      , constraints = []
+      , state = Home
       }
     , Cmd.none
     )
@@ -77,25 +85,45 @@ init _ =
 
 type Msg
     = OnClickAddSingle
-    | AddSingleMsg AddSingle.Msg
-    | OnClickAddInputAdd Input
-    | OnClickAddInputCancel
     | OnClickAddCouple
-    | AddCoupleMsg AddCouple.Msg
+    | OnClickLoadFamily
+    | OnClickAddConstraint
+    | OnClickAddInputAdd Input
+    | OnLoadFamily Family
+    | OnClickAddConstraintAdd Link
+    | OnClickCancel
     | OnClickCompute
     | OnClickRestart
     | OnRandomizePersons (List Person)
-    | GotSwap (List Person)
+    | OnSwap (List Person)
+    | AddSingleMsg AddSingle.Msg
+    | AddCoupleMsg AddCouple.Msg
+    | AddConstraintMsg AddConstraint.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        _ =
+            Debug.log "msg" msg
+    in
     case ( model.state, msg ) of
-        ( Default, OnClickAddSingle ) ->
+        ( Home, OnClickAddSingle ) ->
             ( { model | state = AddSingle AddSingle.init }, Cmd.none )
 
-        ( Default, OnClickAddCouple ) ->
+        ( Home, OnClickAddCouple ) ->
             ( { model | state = AddCouple AddCouple.init }, Cmd.none )
+
+        ( Home, OnClickLoadFamily ) ->
+            ( { model | state = LoadFamily families }, Cmd.none )
+
+        ( Home, OnClickAddConstraint ) ->
+            case toPersons model.inputs of
+                head :: tail ->
+                    ( { model | state = AddConstraint (AddConstraint.init head tail) }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
 
         ( AddSingle _, AddSingleMsg subMsg ) ->
             ( { model | state = AddSingle (AddSingle.update subMsg) }, Cmd.none )
@@ -103,10 +131,16 @@ update msg model =
         ( AddCouple subModel, AddCoupleMsg subMsg ) ->
             ( { model | state = AddCouple (AddCouple.update subMsg subModel) }, Cmd.none )
 
+        ( LoadFamily families, OnLoadFamily family ) ->
+            ( { model | state = Home, inputs = family.members, constraints = [] }, Cmd.none )
+
+        ( AddConstraint subModel, AddConstraintMsg subMsg ) ->
+            ( { model | state = AddConstraint (AddConstraint.update subMsg subModel) }, Cmd.none )
+
         ( _, OnClickAddInputAdd input ) ->
             case alreadyExisting model.inputs input of
                 [] ->
-                    ( { model | inputs = input :: model.inputs, state = Default }, Cmd.none )
+                    ( { model | inputs = model.inputs ++ [ input ], state = Home }, Cmd.none )
 
                 other ->
                     let
@@ -115,22 +149,20 @@ update msg model =
                     in
                     ( model, Cmd.none )
 
-        ( _, OnClickAddInputCancel ) ->
-            ( { model | state = Default }, Cmd.none )
+        ( _, OnClickCancel ) ->
+            ( { model | state = Home }, Cmd.none )
 
-        ( Default, OnClickCompute ) ->
-            ( model
-            , model.inputs
-                |> toPersons
-                |> randomize
-                |> generate OnRandomizePersons
-            )
+        ( AddConstraint _, OnClickAddConstraintAdd link ) ->
+            ( { model | state = Home, constraints = model.constraints ++ [ link ] }, Cmd.none )
 
-        ( Default, OnRandomizePersons persons ) ->
+        ( _, OnClickCompute ) ->
+            compute model
+
+        ( _, OnRandomizePersons persons ) ->
             let
                 avoid : List Link
                 avoid =
-                    Link.fromInputs model.inputs
+                    Link.fromInputs model.inputs ++ model.constraints
 
                 conflicts : Int
                 conflicts =
@@ -149,10 +181,10 @@ update msg model =
                             , count = 1
                             }
                   }
-                , generate GotSwap (swap persons)
+                , generate OnSwap (swap persons)
                 )
 
-        ( Computing current, GotSwap newPersons ) ->
+        ( Computing current, OnSwap newPersons ) ->
             let
                 conflicts =
                     computeConflicts current.solution current.avoid
@@ -161,24 +193,38 @@ update msg model =
                 ( { model | state = Results (Link.fromPersons current.solution) }, Cmd.none )
 
             else if current.count < 1000 then
+                let
+                    _ =
+                        Debug.log "" ( model.state, current.count, current.conflicts )
+                in
                 if conflicts <= current.conflicts then
                     ( { model | state = Computing { current | solution = newPersons, count = current.count + 1 } }
-                    , generate GotSwap (swap newPersons)
+                    , generate OnSwap (swap newPersons)
                     )
 
                 else
                     ( { model | state = Computing { current | count = current.count + 1 } }
-                    , generate GotSwap (swap current.solution)
+                    , generate OnSwap (swap current.solution)
                     )
 
             else
                 ( { model | state = NotFound }, Cmd.none )
 
-        ( Results _, OnClickRestart ) ->
-            ( { model | state = Default, inputs = [] }, Cmd.none )
+        ( _, OnClickRestart ) ->
+            init ()
 
         _ ->
             ( model, Cmd.none )
+
+
+compute : Model -> ( Model, Cmd Msg )
+compute model =
+    ( model
+    , model.inputs
+        |> toPersons
+        |> randomize
+        |> generate OnRandomizePersons
+    )
 
 
 alreadyExisting : List Input -> Input -> List Person
@@ -207,8 +253,17 @@ inputView input =
         )
 
 
+constraintView : Link -> Html Msg
+constraintView link =
+    div [ css [ displayFlex, alignItems center ] ]
+        [ text (Tuple.first link)
+        , text " -/-> "
+        , text (Tuple.second link)
+        ]
+
+
 results : List Link -> List (Html Msg)
-results avoid =
+results links =
     let
         format ( a, b ) =
             div
@@ -218,16 +273,7 @@ results avoid =
                 , div [ css [ width (rem 8) ] ] [ text b ]
                 ]
     in
-    List.map format avoid
-
-
-buttons : List Input -> Html Msg
-buttons inputs =
-    div [ css [ displayFlex, flexDirection column ] ]
-        [ button [ onClick OnClickAddSingle ] [ text "Ajouter une personne" ]
-        , button [ onClick OnClickAddCouple ] [ text "Ajouter un couple" ]
-        , button [ onClick OnClickCompute, disabled (List.length inputs <= 1) ] [ text "Calculer" ]
-        ]
+    List.map format links
 
 
 body : Model -> List (Html Msg)
@@ -235,31 +281,78 @@ body model =
     [ global [ everything [ fontFamilies [ "Roboto", .value sansSerif ] ] ]
     , div [ css [ padding (rem 1), displayFlex, justifyContent center ] ]
         [ case model.state of
-            Default ->
-                div [ css [ displayFlex, alignItems center, flexDirection column ] ]
-                    [ div [] (List.map inputView model.inputs)
-                    , buttons model.inputs
+            Home ->
+                div [ css [ displayFlex, flexDirection column ] ]
+                    [ div [ css [ displayFlex, flexDirection column ] ]
+                        [ div [ css [ marginBottom (rem 0.5) ] ] [ text "Personnes" ]
+                        , div [] (List.map inputView model.inputs)
+                        , button [ css [ marginBottom (rem 0.5) ], onClick OnClickAddSingle ] [ text "Ajouter une personne" ]
+                        , button [ css [ marginBottom (rem 0.5) ], onClick OnClickAddCouple ] [ text "Ajouter un couple" ]
+                        , button [ onClick OnClickLoadFamily ] [ text "Charger une famille" ]
+                        ]
+                    , div [ css [ displayFlex, flexDirection column, marginTop (rem 1) ] ]
+                        [ div [ css [ marginBottom (rem 0.5) ] ] [ text "Contraintes" ]
+                        , div [] (List.map constraintView model.constraints)
+                        , button [ onClick OnClickAddConstraint ] [ text "Ajouter une contrainte" ]
+                        ]
+                    , div [ css [ displayFlex, flexDirection column, marginTop (rem 1) ] ]
+                        [ button
+                            [ onClick OnClickCompute
+                            , disabled (List.length model.inputs <= 1)
+                            ]
+                            [ text "Calculer" ]
+                        ]
                     ]
 
             AddSingle m ->
-                AddSingle.view m AddSingleMsg OnClickAddInputAdd OnClickAddInputCancel
+                AddSingle.view m AddSingleMsg OnClickAddInputAdd OnClickCancel
 
             AddCouple m ->
-                AddCouple.view m AddCoupleMsg OnClickAddInputAdd OnClickAddInputCancel
+                AddCouple.view m AddCoupleMsg OnClickAddInputAdd OnClickCancel
+
+            LoadFamily families ->
+                div [ css [ displayFlex, flexDirection column ] ]
+                    [ div [ css [ marginBottom (rem 0.5) ] ] [ text "Charger une famille" ]
+                    , div [ css [ displayFlex, flexDirection column ] ]
+                        (List.map
+                            (\family ->
+                                button
+                                    [ onClick (OnLoadFamily family)
+                                    , css [ margin2 (rem 0.5) zero ]
+                                    ]
+                                    [ text family.name ]
+                            )
+                            families
+                        )
+                    , button
+                        [ onClick OnClickCancel
+                        , css [ marginTop (rem 1) ]
+                        ]
+                        [ text "Annuler" ]
+                    ]
+
+            AddConstraint m ->
+                AddConstraint.view m AddConstraintMsg OnClickAddConstraintAdd OnClickCancel
 
             Computing current ->
                 div [] [ text (String.fromInt current.count) ]
 
             NotFound ->
-                div [ css [ displayFlex, alignItems center, flexDirection column ] ]
+                div [ css [ displayFlex, flexDirection column ] ]
                     [ text "Pas de résultat"
-                    , button [ onClick OnClickRestart ] [ text "Recommencer" ]
+                    , div [ css [ displayFlex, flexDirection column, marginTop (rem 2) ] ]
+                        [ button [ onClick OnClickCompute ] [ text "Recalculer" ]
+                        , button [ onClick OnClickRestart ] [ text "Recommencer" ]
+                        ]
                     ]
 
-            Results avoid ->
-                div [ css [ displayFlex, alignItems center, flexDirection column ] ]
-                    [ div [] (results avoid)
-                    , button [ onClick OnClickRestart ] [ text "Recommencer" ]
+            Results links ->
+                div [ css [ displayFlex, flexDirection column ] ]
+                    [ div [] (results links)
+                    , div [ css [ displayFlex, flexDirection column, marginTop (rem 2) ] ]
+                        [ button [ onClick OnClickCompute ] [ text "Recalculer" ]
+                        , button [ onClick OnClickRestart ] [ text "Recommencer" ]
+                        ]
                     ]
         ]
     ]
