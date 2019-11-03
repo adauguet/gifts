@@ -1,6 +1,6 @@
 module Compute exposing (computeConflicts, randomize, swap)
 
-import Input exposing (Input(..), toPersons)
+import Input exposing (Input(..))
 import Link exposing (Link, fromPersons)
 import List.Extra as List
 import Person exposing (Person)

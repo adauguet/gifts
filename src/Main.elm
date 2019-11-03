@@ -36,7 +36,6 @@ import Input exposing (Input(..), toPerson, toPersons)
 import Link exposing (Link)
 import Person exposing (Person)
 import Random exposing (generate)
-import Set
 
 
 
@@ -103,10 +102,6 @@ type Msg
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        _ =
-            Debug.log "msg" msg
-    in
     case ( model.state, msg ) of
         ( Home, OnClickAddSingle ) ->
             ( { model | state = AddSingle AddSingle.init }, Cmd.none )
@@ -131,7 +126,7 @@ update msg model =
         ( AddCouple subModel, AddCoupleMsg subMsg ) ->
             ( { model | state = AddCouple (AddCouple.update subMsg subModel) }, Cmd.none )
 
-        ( LoadFamily families, OnLoadFamily family ) ->
+        ( LoadFamily _, OnLoadFamily family ) ->
             ( { model | state = Home, inputs = family.members, constraints = [] }, Cmd.none )
 
         ( AddConstraint subModel, AddConstraintMsg subMsg ) ->
@@ -193,10 +188,6 @@ update msg model =
                 ( { model | state = Results (Link.fromPersons current.solution) }, Cmd.none )
 
             else if current.count < 1000 then
-                let
-                    _ =
-                        Debug.log "" ( model.state, current.count, current.conflicts )
-                in
                 if conflicts <= current.conflicts then
                     ( { model | state = Computing { current | solution = newPersons, count = current.count + 1 } }
                     , generate OnSwap (swap newPersons)
@@ -242,6 +233,7 @@ inputView input =
         [ css
             [ displayFlex
             , alignItems center
+            , marginBottom (rem 0.5)
             ]
         ]
         (case input of
@@ -267,7 +259,7 @@ results links =
     let
         format ( a, b ) =
             div
-                [ css [ displayFlex ] ]
+                [ css [ displayFlex, marginBottom (rem 0.5) ] ]
                 [ div [ css [ width (rem 8), textAlign right ] ] [ text a ]
                 , div [ css [ margin2 zero (rem 0.5) ] ] [ text "offre à" ]
                 , div [ css [ width (rem 8) ] ] [ text b ]
@@ -340,17 +332,17 @@ body model =
             NotFound ->
                 div [ css [ displayFlex, flexDirection column ] ]
                     [ text "Pas de résultat"
-                    , div [ css [ displayFlex, flexDirection column, marginTop (rem 2) ] ]
-                        [ button [ onClick OnClickCompute ] [ text "Recalculer" ]
+                    , div [ css [ displayFlex, flexDirection column, marginTop (rem 1) ] ]
+                        [ button [ onClick OnClickCompute, css [ marginBottom (rem 0.5) ] ] [ text "Recalculer" ]
                         , button [ onClick OnClickRestart ] [ text "Recommencer" ]
                         ]
                     ]
 
             Results links ->
-                div [ css [ displayFlex, flexDirection column ] ]
+                div [ css [ displayFlex, flexDirection column, justifyContent center, alignItems center ] ]
                     [ div [] (results links)
-                    , div [ css [ displayFlex, flexDirection column, marginTop (rem 2) ] ]
-                        [ button [ onClick OnClickCompute ] [ text "Recalculer" ]
+                    , div [ css [ displayFlex, flexDirection column, marginTop (rem 1) ] ]
+                        [ button [ onClick OnClickCompute, css [ marginBottom (rem 0.5) ] ] [ text "Recalculer" ]
                         , button [ onClick OnClickRestart ] [ text "Recommencer" ]
                         ]
                     ]

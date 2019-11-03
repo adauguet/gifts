@@ -6,9 +6,7 @@ import Css
         , displayFlex
         , flexDirection
         , justifyContent
-        , margin
         , margin2
-        , marginTop
         , pct
         , rem
         , spaceBetween

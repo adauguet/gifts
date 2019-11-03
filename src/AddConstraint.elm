@@ -5,14 +5,16 @@ import Css
         ( column
         , displayFlex
         , flexDirection
+        , justifyContent
         , margin2
         , pct
         , rem
+        , spaceBetween
         , width
         , zero
         )
 import Html.Styled exposing (Attribute, Html, button, div, option, select, text)
-import Html.Styled.Attributes exposing (css, disabled, value)
+import Html.Styled.Attributes exposing (css, disabled)
 import Html.Styled.Events exposing (onClick, onInput)
 import Link exposing (Link)
 import Person exposing (Person)
@@ -48,10 +50,6 @@ type Msg
 
 update : Msg -> Model -> Model
 update msg model =
-    let
-        _ =
-            Debug.log "msg" msg
-    in
     case msg of
         OnChooseFirst person ->
             { model | first = person }
@@ -76,9 +74,9 @@ view model toParentMsg onClickOK onClickCancel =
         , personSelect model.persons (OnChooseFirst >> toParentMsg)
         , text "ne doit pas offrir à :"
         , personSelect model.persons (OnChooseSecond >> toParentMsg)
-        , div [ css [ displayFlex ] ]
-            [ button [ css [ width (pct 50) ], attribute model.first model.second onClickOK ] [ text "OK" ]
-            , button [ css [ width (pct 50) ], onClick onClickCancel ] [ text "Annuler" ]
+        , div [ css [ displayFlex, justifyContent spaceBetween, margin2 (rem 0.5) zero ] ]
+            [ button [ css [ width (pct 48) ], attribute model.first model.second onClickOK ] [ text "OK" ]
+            , button [ css [ width (pct 48) ], onClick onClickCancel ] [ text "Annuler" ]
             ]
         ]
 
@@ -87,7 +85,7 @@ personSelect : List Person -> (String -> parentMsg) -> Html parentMsg
 personSelect persons onInputMsg =
     persons
         |> List.map (\person -> option [] [ text person ])
-        |> select [ onInput onInputMsg ]
+        |> select [ onInput onInputMsg, css [ margin2 (rem 0.5) zero ] ]
 
 
 attribute : Person -> Person -> (Link -> parentMsg) -> Attribute parentMsg

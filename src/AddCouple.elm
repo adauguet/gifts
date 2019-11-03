@@ -8,8 +8,6 @@ import Css
         , justifyContent
         , margin2
         , marginBottom
-        , marginLeft
-        , marginRight
         , pct
         , rem
         , spaceBetween
