@@ -8,17 +8,20 @@ import Compute exposing (computeConflicts, randomize, swap)
 import Css
     exposing
         ( alignItems
+        , baseline
         , center
         , column
         , displayFlex
         , flexDirection
         , fontFamilies
+        , fontSize
         , justifyContent
         , margin2
         , marginBottom
         , marginTop
         , none
         , padding
+        , px
         , rem
         , right
         , sansSerif
@@ -29,9 +32,9 @@ import Css
 import Css.Global exposing (everything, global)
 import Family exposing (Family, families)
 import Helpers exposing (intersect)
-import Html.Styled exposing (Html, button, div, text, toUnstyled)
-import Html.Styled.Attributes exposing (css, disabled)
-import Html.Styled.Events exposing (onClick)
+import Html.Styled exposing (Html, button, div, input, text, toUnstyled)
+import Html.Styled.Attributes exposing (checked, css, disabled, type_)
+import Html.Styled.Events exposing (onCheck, onClick)
 import Input exposing (Input(..), toPerson, toPersons)
 import Link exposing (Link)
 import Person exposing (Person)
@@ -45,6 +48,7 @@ import Random exposing (generate)
 type alias Model =
     { inputs : List Input
     , constraints : List Link
+    , couplesAreConstraints : Bool
     , state : State
     }
 
@@ -72,6 +76,7 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( { inputs = []
       , constraints = []
+      , couplesAreConstraints = True
       , state = Home
       }
     , Cmd.none
@@ -86,6 +91,7 @@ type Msg
     = OnClickAddSingle
     | OnClickAddCouple
     | OnClickLoadFamily
+    | OmToggleCouplesConstraints Bool
     | OnClickAddConstraint
     | OnClickAddInputAdd Input
     | OnLoadFamily Family
@@ -111,6 +117,9 @@ update msg model =
 
         ( Home, OnClickLoadFamily ) ->
             ( { model | state = LoadFamily families }, Cmd.none )
+
+        ( Home, OmToggleCouplesConstraints checked ) ->
+            ( { model | couplesAreConstraints = checked }, Cmd.none )
 
         ( Home, OnClickAddConstraint ) ->
             case toPersons model.inputs of
@@ -157,7 +166,11 @@ update msg model =
             let
                 avoid : List Link
                 avoid =
-                    Link.fromInputs model.inputs ++ model.constraints
+                    if model.couplesAreConstraints then
+                        model.constraints ++ Link.fromInputs model.inputs
+
+                    else
+                        model.constraints
 
                 conflicts : Int
                 conflicts =
@@ -284,6 +297,10 @@ body model =
                         ]
                     , div [ css [ displayFlex, flexDirection column, marginTop (rem 1) ] ]
                         [ div [ css [ marginBottom (rem 0.5) ] ] [ text "Contraintes" ]
+                        , div [ css [ marginBottom (rem 0.5), displayFlex, alignItems center ] ]
+                            [ input [ type_ "checkbox", checked model.couplesAreConstraints, onCheck OmToggleCouplesConstraints ] []
+                            , div [ css [ fontSize (px 13) ] ] [ text "Pas entre conjoints" ]
+                            ]
                         , div [] (List.map constraintView model.constraints)
                         , button [ onClick OnClickAddConstraint ] [ text "Ajouter une contrainte" ]
                         ]
